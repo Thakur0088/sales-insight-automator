@@ -11,11 +11,14 @@ const PORT = process.env.PORT || 5000;
 
 // Security Middleware
 app.use(helmet());
+import cors from "cors";
+
 app.use(cors({
   origin: [
-    'http://localhost:3000',
+    "http://localhost:3000",
     process.env.FRONTEND_URL
   ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
