@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 5000;
 
 // Security Middleware
 app.use(helmet());
-import cors from "cors";
+
 
 app.use(cors({
   origin: [
