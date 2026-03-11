@@ -9,27 +9,20 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+
 // Security Middleware
-app.use(helmet());
-
-app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      process.env.FRONTEND_URL,
-      'http://localhost:3000',
-    ].filter(Boolean);
-
-    // Allow requests with no origin (like Swagger/Postman)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST'],
-  credentials: true,
-}));
-
+app.use(helmet({ crossOriginResourcePolicy: false }));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(rateLimiter);
