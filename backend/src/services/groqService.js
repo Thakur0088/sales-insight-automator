@@ -1,7 +1,11 @@
 const Groq = require('groq-sdk');
 require('dotenv').config();
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = new Groq({ 
+  apiKey: process.env.GROQ_API_KEY,
+  timeout: 60000, // 60 seconds timeout
+});
+
 
 const generateSummary = async (salesData) => {
   const prompt = `

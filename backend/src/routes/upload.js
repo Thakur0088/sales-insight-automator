@@ -64,42 +64,78 @@ const parseXLSX = (buffer) => {
  *       500:
  *         description: Server error
  */
-router.post('/upload', upload.single('file'), validateUpload, async (req, res) => {
-  try {
-    const { email } = req.body;
-    const file = req.file;
-
-    // Parse the file
-    let parsedData;
-    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
-      parsedData = await parseCSV(file.buffer);
-    } else {
-      parsedData = parseXLSX(file.buffer);
-    }
-
-    if (!parsedData || parsedData.length === 0) {
-      return res.status(400).json({ error: 'File is empty or could not be parsed.' });
-    }
-
-    // Convert to string for Groq
-    const dataString = JSON.stringify(parsedData, null, 2);
-
-    // Generate AI Summary
-    const summary = await generateSummary(dataString);
-
-    // Send Email
-    await sendSummaryEmail(email, summary);
-
-    res.status(200).json({
-      message: `✅ Summary generated and sent to ${email}`,
-      rowsProcessed: parsedData.length,
+router.post(
+  '/upload',
+  // Step 1: Handle multer with error catching
+  (req, res, next) => {
+    req.setTimeout(90000);
+    res.setTimeout(90000);
+    upload.single('file')(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: `File upload error: ${err.message}` });
+      } else if (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      next();
     });
+  },
+  // Step 2: Validate inputs
+  validateUpload,
+  // Step 3: Process
+  async (req, res) => {
+    try {
+      const { email } = req.body;
+      const file = req.file;
 
-  } catch (error) {
-    console.error('Upload error:', error.message);
-    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+      // Parse the file
+      let parsedData;
+      if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+        parsedData = await parseCSV(file.buffer);
+      } else {
+        parsedData = parseXLSX(file.buffer);
+      }
+
+      if (!parsedData || parsedData.length === 0) {
+        return res.status(400).json({ error: 'File is empty or could not be parsed.' });
+      }
+
+      // Convert to string for Groq
+      const dataString = JSON.stringify(parsedData, null, 2);
+
+      // Generate AI Summary
+      console.log(`Generating summary for ${parsedData.length} rows...`);
+      const summary = await generateSummary(dataString);
+      console.log('Summary generated successfully');
+
+      // Send Email
+      console.log(`Sending email to ${email}...`);
+      await sendSummaryEmail(email, summary);
+      console.log('Email sent successfully');
+
+      res.status(200).json({
+        message: `✅ Summary generated and sent to ${email}`,
+        rowsProcessed: parsedData.length,
+      });
+
+    } catch (error) {
+      console.error('Upload error details:', error.message);
+      console.error('Stack:', error.stack);
+
+      // Give specific error messages
+      if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+        return res.status(500).json({ error: 'AI service timed out. Please try again.' });
+      }
+      if (error.message.includes('GROQ') || error.message.includes('groq')) {
+        return res.status(500).json({ error: 'AI service error. Check your Groq API key.' });
+      }
+      if (error.message.includes('Gmail') || error.message.includes('email') || error.message.includes('EAUTH')) {
+        return res.status(500).json({ error: 'Email sending failed. Check Gmail credentials.' });
+      }
+
+      res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    }
   }
-});
+);
 
 /**
  * @swagger
